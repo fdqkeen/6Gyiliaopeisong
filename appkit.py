@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -67,11 +68,23 @@ def plotly(fig, key=None, h=380, legend_bottom=False):
 
 
 def table(df, key=None, h=None):
+    if not hasattr(df, "columns"):         # 允许直接传 list / dict 列表
+        df = pd.DataFrame(df)
     kw = {"width": "stretch"} if _V >= (1, 46) else {"use_container_width": True}
+    if h is not None:                      # height=None 在新版会被判为非法值
+        kw["height"] = h
+    # 同一列里混着字符串和数字时，新版 pyarrow 转换会失败，统一按文本渲染
+    obj = [c for c in df.columns
+           if df[c].dtype == object
+           and df[c].map(lambda v: type(v).__name__).nunique() > 1]
+    if obj:
+        df = df.copy()
+        for c in obj:
+            df[c] = df[c].astype(str)
     try:
-        st.dataframe(df, key=key, hide_index=True, height=h, **kw)
+        st.dataframe(df, key=key, hide_index=True, **kw)
     except TypeError:
-        st.dataframe(df, hide_index=True, height=h, **kw)
+        st.dataframe(df, hide_index=True, **kw)
 
 
 def note(text):
